@@ -1,6 +1,7 @@
 package com.example.java26demo;
 
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -197,5 +198,29 @@ public class Java26demoApplication implements CommandLineRunner {
         // JEP 529 - Vector API
         // https://openjdk.org/jeps/529
         demoVectorApi();
+
+        // JEP 500 - Prepare to Make Final Mean Final
+        // https://openjdk.org/jeps/500
+        var c = new C();
+        logger.get().info("Final x: {}", c.x);
+
+        Field f = C.class.getDeclaredField("x");
+        f.setAccessible(true);
+        f.set(c, 200);
+
+        logger.get().info("Final ?? x: {}", c.x);
+
+        /*
+WARNING: Final field x in class com.example.java26demo.Java26demoApplication$C has been mutated reflectively by class com.example.java26demo.Java26demoApplication in unnamed module @55fe41ea (file:/C:/repos/java26demo/target/classes/)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+         */
+    }
+
+    static class C {
+        final int x;
+        C() {
+            x = 100;
+        }
     }
 }
