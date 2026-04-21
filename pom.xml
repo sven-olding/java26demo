@@ -50,6 +50,8 @@
 				<configuration>
 					<compilerArgs>
 						<arg>--enable-preview</arg>
+						<arg>--add-modules</arg>
+						<arg>jdk.incubator.vector</arg>
 					</compilerArgs>
 				</configuration>
 			</plugin>
@@ -57,7 +59,8 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<jvmArguments>--enable-preview</jvmArguments>
+					<mainClass>com.example.java26demo.Java26demoApplication</mainClass>
+					<jvmArguments>--enable-preview --add-modules jdk.incubator.vector</jvmArguments>
 				</configuration>
 			</plugin>
 		</plugins>
