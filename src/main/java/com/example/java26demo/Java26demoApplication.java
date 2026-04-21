@@ -215,6 +215,20 @@ WARNING: Final field x in class com.example.java26demo.Java26demoApplication$C h
 WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
 WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
          */
+
+
+        // JEP 530: Primitive Types in Patterns, instanceof, and switch (Fourth Preview)
+        // https://openjdk.org/jeps/530
+        // https://blog.doubleslash.de/software-technologien/coding-and-frameworks/java-26-ist-da-was-ist-neu/
+        long myLong = 128;
+        switch (myLong) {
+            case long l when l == 1       -> System.out.println("One");
+            case long l when l == 2       -> System.out.println("Two");
+            case 10_000_000_000L          -> System.out.println("Ten billion");
+            case byte b                   -> System.out.printf("Byte b=%d %n", b);
+            case int i when i < 1_000_000 -> System.out.printf("Less than 1 Mio: %d %n", i);
+            case long l                   -> System.out.printf("x=%d %n", l);
+        }
     }
 
     static class C {
