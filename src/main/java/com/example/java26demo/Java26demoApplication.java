@@ -9,7 +9,11 @@ import java.net.http.HttpResponse;
 import java.net.http.UnsupportedProtocolVersionException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.StructuredTaskScope.Joiner;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -228,6 +232,63 @@ WARNING: Mutating final fields will be blocked in a future release unless final 
             case byte b                   -> System.out.printf("Byte b=%d %n", b);
             case int i when i < 1_000_000 -> System.out.printf("Less than 1 Mio: %d %n", i);
             case long l                   -> System.out.printf("x=%d %n", l);
+        }
+
+        // JEP 525 - Structured Concurrency (Preview)
+        // https://openjdk.org/jeps/525
+        demoStructuredConcurrency();
+    }
+
+    // JEP 525 - Structured Concurrency (Preview)
+    // https://openjdk.org/jeps/525
+    private void demoStructuredConcurrency() throws Exception {
+        logger.get().info("=== JEP 525 - Structured Concurrency ===");
+
+        record User(int id, String name) {}
+        record Order(int id, String item) {}
+
+        // Demo 1: Default scope — all subtasks must succeed; first failure cancels the rest.
+        // scope.join() returns void here; results are read via Subtask::get after joining.
+        try (var scope = StructuredTaskScope.open()) {
+            var userTask  = scope.fork(() -> new User(1, "Alice"));
+            var orderTask = scope.fork(() -> { Thread.sleep(50); return new Order(42, "Book"); });
+            scope.join();
+            logger.get().info("[Structured Concurrency] Default scope: user={}, order={}",
+                    userTask.get(), orderTask.get());
+        }
+
+        // Demo 2: anySuccessfulOrThrow() — return the result of whichever subtask finishes first,
+        // then cancel the remaining ones. Useful for redundant-service / hedged-request patterns.
+        try (var scope = StructuredTaskScope.open(Joiner.<String>anySuccessfulOrThrow())) {
+            scope.fork(() -> { Thread.sleep(200); return "slow-service"; });
+            scope.fork(() -> { Thread.sleep(30);  return "fast-service"; });
+            String winner = scope.join();
+            logger.get().info("[Structured Concurrency] anySuccessfulOrThrow winner: {}", winner);
+        }
+
+        // Demo 3: allSuccessfulOrThrow() — JDK 26 change: returns List<T> instead of
+        // Stream<Subtask<T>>, making results directly usable without unwrapping Subtask objects.
+        try (var scope = StructuredTaskScope.open(Joiner.<String>allSuccessfulOrThrow())) {
+            scope.fork(() -> "apple");
+            scope.fork(() -> "banana");
+            scope.fork(() -> "cherry");
+            List<String> fruits = scope.join();
+            logger.get().info("[Structured Concurrency] allSuccessfulOrThrow results: {}", fruits);
+        }
+
+        // Demo 4: Timeout — JDK 26 adds Joiner.onTimeout() so joiners can react to (and
+        // produce a result on) timeout expiry. Here anySuccessfulOrThrow() cancels the scope
+        // when the deadline fires and join() throws FailedException because no task succeeded.
+        try (var scope = StructuredTaskScope.open(
+                Joiner.<String>anySuccessfulOrThrow(),
+                config -> config.withTimeout(Duration.ofMillis(100)))) {
+            scope.fork(() -> { Thread.sleep(500); return "too-slow"; });
+            try {
+                String result = scope.join();
+                logger.get().info("[Structured Concurrency] Timeout demo result: {}", result);
+            } catch (StructuredTaskScope.TimeoutException _) {
+                logger.get().info("[Structured Concurrency] Timed out as expected — subtask was cancelled");
+            }
         }
     }
 
